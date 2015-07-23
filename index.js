@@ -156,7 +156,9 @@ app.get('/', function(req, res) {
  *  - exchanges the authorization_code for a StreamMe token
  *  - redirects the user to the OAuth2 redirectURL given to the app
  */
-app.get('/login', passport.authenticate('streamme', {}));
+app.get('/login', passport.authenticate('streamme', {
+    scope: ['message','emoticon']
+}));
 
 /* *
  * Logout
