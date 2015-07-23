@@ -48,7 +48,7 @@ app.use(expressSession({ secret: 'keyboard cat', cookie: { maxAge: 60000 }, resa
  passport.use('streamme', 
      new StreamMeStrategy({
          clientID: 'a0b9555a-7878-47b2-b989-086cf034c430',
-         clientSecret: 'c2a0ad5eaf3ea0af8188916020e01a3abe8285b5',
+         clientSecret: 'd2759a1dd3cc6957d3ecc17e1ad07eb124285768',
          callbackURL: '/users/redirect',
      },
      function(accessToken, refreshToken, profile, done) {
@@ -143,7 +143,7 @@ var getEmoticons = function(req,res){
  * GET home page (no authentication)
  * * */
 app.get('/', function(req, res) {
-  res.render('index', { title: 'OAuth2 Demo Client', username: req.user && req.user.username });
+  res.render('index', { title: 'StreamMe OAuth2 Client Demo', username: req.user && req.user.username });
 });
 
 /* *
