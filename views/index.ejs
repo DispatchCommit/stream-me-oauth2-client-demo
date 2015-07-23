@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title><%= title %></title>
+    <link rel='stylesheet' href='/style.css' />
+  </head>
+  <body>
+    <h1><%= title %></h1>
+
+	<% if(username){ %>
+		<p> Welcome, <%= username %>! Your session has been saved.</p>
+		<p> Click one of the authenticated routes below, or logout to remove your session</p>
+		<ul>
+	    	<li>
+	    		<a href='feed'>Get Your Feed</a>
+	    	</li>
+	    	<li>
+	    		<a href='emoticons'>Get Your Emoticons</a>
+	    	</li>
+			<li>
+	    		<a href='logout'>Logout</a>
+	    	</li>
+    	</ul>
+	<% } else { %>
+		<p> 
+			Welcome to the demo. Click the link below to log in through StreamMe.
+		</p>
+		<p>
+		 	If this is your first time, follow the instructions in your browser to authorize this application.
+		</p>
+		<ul>
+			<li>
+				<a href='login'>Login With StreamMe</a>
+			</li>
+		</ul>
+	<% } %>
+  </body>
+</html>
