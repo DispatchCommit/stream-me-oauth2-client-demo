@@ -17,7 +17,7 @@ var app = express();
 app.set('views', 'views');
 app.set('view engine', 'ejs');
 
-// global for convenience;
+// global variable for convenience
 var domain = 'https://stream.me';
 
 /* *
@@ -53,6 +53,10 @@ app.use(expressSession({ secret: 'keyboard cat', cookie: { maxAge: 60000 }, resa
          clientID: 'a0b9555a-7878-47b2-b989-086cf034c430',
          clientSecret: 'd2759a1dd3cc6957d3ecc17e1ad07eb124285768',
          callbackURL: '/users/redirect',
+
+         // not strictly necessary since the passport streamme strategy handles these by default:
+         authorizationURL: domain + '/api-auth/authorize',
+         tokenURL: domain + '/api-auth/token'
      },
      function(accessToken, refreshToken, profile, done) {
         var userObj = Users.save(accessToken,refreshToken,profile)
