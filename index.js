@@ -17,6 +17,9 @@ var app = express();
 app.set('views', 'views');
 app.set('view engine', 'ejs');
 
+// global for convenience;
+var domain = 'https://stream.me';
+
 /* *
  * Express-Session Setup
  * * *
@@ -91,7 +94,7 @@ var requireLogin = function(req,res,next){
  */
 var getFeed = function(req,res){
     request({
-        url: 'https://www.stream.me/api-message/v1/users/' + req.user.slug + '/feed',
+        url: domain + '/api-message/v1/users/' + req.user.slug + '/feed',
         json: true,
         headers: {
             'Authorization': 'Bearer ' + req.user.at
@@ -101,7 +104,11 @@ var getFeed = function(req,res){
             return res.status(500).send(err.message);
         }
         if(!response || response.statusCode !== 200){
-            return res.status(response && response.statusCode || 400).send('something-went-wrong');
+            return res.status(response && response.statusCode || 400).send({
+                message: 'something-went-wrong',
+                code: response && response.statusCode,
+                body: body
+            });
         }
         res.render('user-data', {
             username: req.user.username,
@@ -112,7 +119,7 @@ var getFeed = function(req,res){
 };
 var getEmoticons = function(req,res){
     request({
-        url: 'https://www.stream.me/api-emoticon/v1/' + req.user.slug + '/manage',
+        url: domain + '/api-emoticon/v1/' + req.user.slug + '/manage',
         json: true,
         headers: {
             'Authorization': 'Bearer ' + req.user.at,
@@ -122,11 +129,49 @@ var getEmoticons = function(req,res){
             return res.status(500).send(err.message);
         }
         if(!response || response.statusCode !== 200){
-            return res.status(response && response.statusCode || 400).send('something-went-wrong');
+            return res.status(response && response.statusCode || 400).send({
+                message: 'something-went-wrong',
+                code: response && response.statusCode,
+                body: body
+            });
         }
         res.render('user-data', {
             username: req.user.username,
             routename: 'emoticons',
+            data: JSON.stringify(body,null,4)
+        });
+    });
+};
+
+// count: a global integer that gets incremented each time updateMe is called just to demonstrate that the name is changing
+var count = 0;
+var updateMe = function(req,res){
+    request({
+        method: 'put',
+        url: domain + '/api-user/v1/me',
+        json: true,
+        headers: {
+            'Authorization': 'Bearer ' + req.user.at,
+        },
+        body: {
+            email: 'newemail' + count + '@gmail.com',
+            displayName: 'newname' + count
+        }
+    },function(err,response,body){
+        count++
+        if(err){
+            return res.status(500).send(err.message);
+        }
+        if(!response || response.statusCode !== 200){
+            return res.status(response && response.statusCode || 400).send({
+                message: 'something-went-wrong',
+                code: response && response.statusCode,
+                body: body
+            });
+        }
+        res.render('user-data', {
+            username: req.user.username,
+            routename: 'me',
             data: JSON.stringify(body,null,4)
         });
     });
@@ -156,7 +201,10 @@ app.get('/', function(req, res) {
  *  - exchanges the authorization_code for a StreamMe token
  *  - redirects the user to the OAuth2 redirectURL given to the app
  */
-app.get('/login', passport.authenticate('streamme', {}));
+app.get('/login', passport.authenticate('streamme', {
+    // Not required: if no scopes are provided here, StreamMe will fetch the required scopes
+    // scope: ['account','emoticon']
+}));
 
 /* *
  * Logout
@@ -209,4 +257,16 @@ app.get('/feed',
 app.get('/emoticons',
     requireLogin,
     getEmoticons
+);
+
+/* *
+ * Emoticons
+ * * *
+ *
+ *  - edits some account information in the user's profile
+ *  - this route is authenticated and requires a valid access token from an OAuth2 client app with the 'account' scope
+ */
+app.get('/me',
+    requireLogin,
+    updateMe
 );
