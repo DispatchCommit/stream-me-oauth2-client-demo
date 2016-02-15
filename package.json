@@ -16,7 +16,7 @@
     "express": "~4.9.0",
     "express-session": "^1.11.3",
     "passport": "^0.2.2",
-    "passport-streamme-oauth2": "^1.1.0",
+    "passport-streamme-oauth2": "^1.2.0",
     "request": "^2.69.0"
   },
   "devDependencies": {

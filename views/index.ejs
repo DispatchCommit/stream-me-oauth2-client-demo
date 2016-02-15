@@ -2,12 +2,11 @@
 <html>
   <head>
     <title><%= title %></title>
-    <link rel='stylesheet' href='/style.css' />
   </head>
   <body>
     <h1><%= title %></h1>
 
-	<% if(username){ %>
+	<% if (username) { %>
 		<p> Welcome, <%= username %>! Your session has been saved.</p>
 		<p> Click one of the authenticated routes below, or logout to remove your session</p>
 		<ul>

@@ -20,6 +20,11 @@ app.set('view engine', 'ejs');
 // defined globally for convenience
 var domain = 'https://www.stream.me';
 
+// id and secret for stream.me oauth application
+var CLIENT_ID = '468fd4f0-4fe8-40fb-899a-3a629e9a7b1e';
+var CLIENT_SECRET = '08fb801ac78a4cabbfeec53e3b13635ee25bb471';
+var CALLBACK_URL = 'http://localhost:3000/users/redirect';
+
 /* *
  * Express-Session Setup
  * * *
@@ -54,15 +59,16 @@ app.use(expressSession({
  * passport.initialize() must be called before passport.session()
  */
  passport.use('streamme', new StreamMeStrategy({
-	clientID: 'a0b9555a-7878-47b2-b989-086cf034c430',
-	clientSecret: 'd2759a1dd3cc6957d3ecc17e1ad07eb124285768',
+	clientID: CLIENT_ID,
+	clientSecret: CLIENT_SECRET,
 
 	// must be the match route for this application defined at https://developers.stream.me/oauth
-	callbackURL: '/users/redirect',
+	callbackURL: CALLBACK_URL,
 
 	// not strictly necessary since the passport streamme strategy handles these by default:
 	authorizationURL: domain + '/api-auth/authorize',
-	tokenURL: domain + '/api-auth/token'
+	tokenURL: domain + '/api-auth/token',
+	userProfileURL: domain + '/api-user/v1/me'
  }, function (accessToken, refreshToken, profile, done) {
 	var userObj = Users.save(accessToken, refreshToken, profile);
 	if (!userObj) {
@@ -79,111 +85,6 @@ passport.deserializeUser(function (id, done) {
 });
 app.use(passport.initialize());
 app.use(passport.session());
-
-/* *
- * Middleware
- * * */
-var requireLogin = function (req, res, next) {
-	if (!req.user) {
-		return res.redirect('/');
-	}
-	next();
-};
-
-/* *
- * Route Controllers
- * * *
- *
- * - Simple GET requests directed towards an authenticated StreamMe resource
- *
- * getFeed: retrieve a  user's message feed
- * getEmoticons: retreive the list of user's custom emoticons. may be empty if the user has not created custom emoticons at https://www.stream.me/profile#emoticons
- */
-var getFeed = function (req, res) {
-	request({
-		url: domain + '/api-message/v1/users/' + req.user.slug + '/feed',
-		json: true,
-		headers: {
-			'Authorization': 'Bearer ' + req.user.at
-		}
-	}, function (err, response, body) {
-		if (err) {
-			return res.status(500).send(err.message);
-		}
-		if (!response || response.statusCode !== 200) {
-			return res.status(response && response.statusCode || 400).send({
-				message: 'something-went-wrong',
-				code: response && response.statusCode,
-				body: body
-			});
-		}
-		res.render('user-data', {
-			username: req.user.username,
-			routename: 'feed',
-			data: JSON.stringify(body, null, 4)
-		});
-	});
-};
-
-var getEmoticons = function (req, res) {
-	request({
-		url: domain + '/api-emoticon/v1/' + req.user.slug + '/manage',
-		json: true,
-		headers: {
-			'Authorization': 'Bearer ' + req.user.at
-		}
-	}, function (err, response, body) {
-		if (err) {
-			return res.status(500).send(err.message);
-		}
-		if (!response || response.statusCode !== 200) {
-			return res.status(response && response.statusCode || 400).send({
-				message: 'something-went-wrong',
-				code: response && response.statusCode,
-				body: body
-			});
-		}
-		res.render('user-data', {
-			username: req.user.username,
-			routename: 'emoticons',
-			data: JSON.stringify(body, null, 4)
-		});
-	});
-};
-
-// count: a global integer that gets incremented each time updateMe is called just to demonstrate that the name is changing
-var count = 0;
-var updateMe = function (req, res) {
-	request({
-		method: 'put',
-		url: domain + '/api-user/v1/me',
-		json: true,
-		headers: {
-			'Authorization': 'Bearer ' + req.user.at
-		},
-		body: {
-			email: 'newemail' + count + '@gmail.com',
-			displayName: 'newname' + count
-		}
-	}, function (err, response, body) {
-		count++;
-		if (err) {
-			return res.status(500).send(err.message);
-		}
-		if (!response || response.statusCode !== 200) {
-			return res.status(response && response.statusCode || 400).send({
-				message: 'something-went-wrong',
-				code: response && response.statusCode,
-				body: body
-			});
-		}
-		res.render('user-data', {
-			username: req.user.username,
-			routename: 'me',
-			data: JSON.stringify(body, null, 4)
-		});
-	});
-};
 
 /* *
  * Express server and routing
@@ -214,10 +115,31 @@ app.get('/', function (req, res) {
  */
 app.get('/login', passport.authenticate('streamme', {
     // Not required: if no scopes are provided here, StreamMe will fetch the required scopes
-    // scope: ['account','emoticon']
+	scope: ['account', 'emoticon', 'message'],
+	// Also not required: as per the oauth spec, you can store some state to be retreived
+	// once the oauth process has completed.
+	state: 'SOME_VALUE'
 }));
 
 /* *
+ * Redirect
+ * * *
+ *
+ *  - this is the redirectURL specified in the StreamMe OAuth2 client at https://developers.stream.me/oauth
+ *  - in this example it just redirects the user home on authentication success or failure
+ */
+app.get('/users/redirect', function (req, res, next) {
+	// Any custom logic base on the login can be done here, for example
+	// using the state you set in the original authenticate call
+	// to do csrf or load custom data about the users session
+	console.log('Login success with state: ' + req.query.state);
+	next();
+}, passport.authenticate('streamme', {
+	successRedirect: '/',
+	failureRedirect: '/'
+}));
+
+/* *,
  * Logout
  * * *
  *
@@ -229,18 +151,6 @@ app.get('/logout', requireLogin, function (req, res) {
 	req.logout();
 	res.redirect('/');
 });
-
-/* *
- * Redirect
- * * *
- *
- *  - this is the redirectURL specified in the StreamMe OAuth2 client at https://developers.stream.me/oauth
- *  - in this example it just redirects the user home on authentication success or failure
- */
-app.get('/users/redirect', passport.authenticate('streamme', {
-	successRedirect: '/',
-	failureRedirect: '/'
-}));
 
 /* *
  * Feed
@@ -268,3 +178,108 @@ app.get('/emoticons', requireLogin, getEmoticons);
  *  - this route is authenticated and requires a valid access token from an OAuth2 client app with the 'account' scope
  */
 app.get('/me', requireLogin, updateMe);
+
+/* *
+ * Middleware
+ * * */
+function requireLogin (req, res, next) {
+	if (!req.user) {
+		return res.redirect('/');
+	}
+	next();
+}
+
+/* *
+ * Route Controllers
+ * * *
+ *
+ * - Simple GET requests directed towards an authenticated StreamMe resource
+ *
+ * getFeed: retrieve a  user's message feed
+ * getEmoticons: retreive the list of user's custom emoticons. may be empty if the user has not created custom emoticons at https://www.stream.me/profile#emoticons
+ */
+function getFeed (req, res) {
+	request({
+		url: domain + '/api-message/v1/users/' + req.user.slug + '/feed',
+		json: true,
+		headers: {
+			'Authorization': 'Bearer ' + req.user.at
+		}
+	}, function (err, response, body) {
+		if (err) {
+			return res.status(500).send(err.message);
+		}
+		if (!response || response.statusCode !== 200) {
+			return res.status(response && response.statusCode || 400).send({
+				message: 'something-went-wrong',
+				code: response && response.statusCode,
+				body: body
+			});
+		}
+		res.render('user-data', {
+			username: req.user.username,
+			routename: 'feed',
+			data: JSON.stringify(body, null, 4)
+		});
+	});
+}
+
+function getEmoticons (req, res) {
+	request({
+		url: domain + '/api-emoticon/v1/' + req.user.slug + '/manage',
+		json: true,
+		headers: {
+			'Authorization': 'Bearer ' + req.user.at
+		}
+	}, function (err, response, body) {
+		if (err) {
+			return res.status(500).send(err.message);
+		}
+		if (!response || response.statusCode !== 200) {
+			return res.status(response && response.statusCode || 400).send({
+				message: 'something-went-wrong',
+				code: response && response.statusCode,
+				body: body
+			});
+		}
+		res.render('user-data', {
+			username: req.user.username,
+			routename: 'emoticons',
+			data: JSON.stringify(body, null, 4)
+		});
+	});
+}
+
+// count: a global integer that gets incremented each time updateMe is called just to demonstrate that the name is changing
+var count = 0;
+function updateMe (req, res) {
+	request({
+		method: 'put',
+		url: domain + '/api-user/v1/me',
+		json: true,
+		headers: {
+			'Authorization': 'Bearer ' + req.user.at
+		},
+		body: {
+			email: 'newemail' + count + '@gmail.com',
+			displayName: 'newname' + count
+		}
+	}, function (err, response, body) {
+		count++;
+		if (err) {
+			return res.status(500).send(err.message);
+		}
+		if (!response || response.statusCode !== 200) {
+			return res.status(response && response.statusCode || 400).send({
+				message: 'something-went-wrong',
+				code: response && response.statusCode,
+				body: body
+			});
+		}
+		res.render('user-data', {
+			username: req.user.username,
+			routename: 'me',
+			data: JSON.stringify(body, null, 4)
+		});
+	});
+}
